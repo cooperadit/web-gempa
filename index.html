@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gempa Indonesia &amp; Dunia — Data BMKG &amp; USGS</title><meta name="description" content="Peta 3D gempa bumi Indonesia dan dunia dengan data BMKG dan USGS, analisis seismogram, dan filter tanggal.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap">
+<style>
+:root{--bg:#090d16;--panel:rgba(15,23,42,.72);--line:#1e293b;--tx:#e2e8f0;--mu:#7b8aa3;--red:#f0524f;--cor:#ff8a6b;--cy:#5eead4;--sans:Inter,system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#090d16}}
+*{box-sizing:border-box;margin:0}html,body{height:100%}
+body{background:var(--bg);color:var(--tx);font:13px/1.5 var(--sans);overflow:hidden}
+#gl{position:fixed;inset:0;cursor:grab}#gl:active{cursor:grabbing}
+.glass{background:var(--panel);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:6px}
+header{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;pointer-events:none;z-index:5}
+header>*{pointer-events:auto}
+.brand{font-weight:600;letter-spacing:.14em;font-size:12px;text-transform:uppercase;display:flex;align-items:center;gap:10px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--cy);box-shadow:0 0 0 0 var(--cy);animation:p 2s infinite}
+@keyframes p{70%{box-shadow:0 0 0 8px transparent}}
+.stats{display:flex;gap:1px;background:var(--line);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.stats div{background:var(--panel);backdrop-filter:blur(18px);padding:6px 14px}
+.stats b{display:block;font:500 15px var(--mono)}.stats span{color:var(--mu);font-size:10px;text-transform:uppercase;letter-spacing:.1em}
+aside{position:fixed;z-index:4;top:calc(64px + env(safe-area-inset-top,0px));bottom:16px;transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+#feed{left:16px;width:310px;display:flex;flex-direction:column}
+#feed.shut{transform:translateX(-340px)}
+#detail{right:16px;width:360px;overflow:auto;transform:translateX(390px)}#detail.open{transform:none}
+.tabs{display:flex;gap:4px;padding:10px;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;background:none;border:1px solid transparent;color:var(--mu);font:500 12px var(--sans);padding:5px;border-radius:4px;cursor:pointer;transition:.2s}
+.tabs button:hover{color:var(--tx)}.tabs button.on{color:var(--tx);border-color:var(--line);background:#111a2e}
+#list{overflow:auto;flex:1}
+.row{display:grid;grid-template-columns:42px 1fr;gap:10px;padding:10px 12px;border-bottom:1px solid #131c2e;cursor:pointer;transition:background .2s}
+.row:hover,.row.on{background:#111a2e}
+.mag{font:500 15px var(--mono);align-self:center}.row small{color:var(--mu);font-family:var(--mono);font-size:10.5px}
+.row div{min-width:0}.row p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tog{position:fixed;left:16px;bottom:16px;z-index:6;background:var(--panel);color:var(--mu);border:1px solid var(--line);border-radius:6px;padding:6px 12px;font:500 11px var(--sans);cursor:pointer;display:none}
+.pad{padding:18px}h2{font-size:17px;font-weight:600;line-height:1.3;margin:4px 0 2px}
+.k{color:var(--mu);font-size:10px;text-transform:uppercase;letter-spacing:.12em}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);margin:16px 0;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.grid div{background:#0c1424;padding:10px 12px}.grid b{display:block;font:500 14px var(--mono);margin-top:2px}
+.x{float:right;background:none;border:0;color:var(--mu);font-size:18px;cursor:pointer}
+.big{font:500 44px/1 var(--mono);color:var(--cor)}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font:500 11px var(--mono);border:1px solid}
+canvas#wv{width:100%;height:130px;display:block;background:#0a1120;border:1px solid var(--line);border-radius:4px;margin-top:6px}
+.hint{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);color:var(--mu);font-size:11px;letter-spacing:.08em;z-index:3;pointer-events:none}
+@media(max-width:760px){#detail{left:12px;right:12px;width:auto;top:45%;transform:translateY(110%)}#detail.open{transform:none}#feed{width:calc(100% - 32px)}.stats div:nth-child(n+3){display:none}.tog{display:block}.hint{display:none}}
+:root{--bg:#0d1016;--panel:#12161e;--line:#232a36;--tx:#e6e2d9;--mu:#8a8f99;--red:#e5533d;--cor:#e8a15a;--cy:#9fb4a6;--sans:"IBM Plex Sans",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace;--serif:Newsreader,Georgia,serif}
+body{background:var(--bg);font-family:var(--sans)}
+.glass{background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:0;border:1px solid var(--line);border-top:2px solid var(--tx)}
+.brand{display:block}.brand h1{font:400 24px/1.1 var(--serif);letter-spacing:-.01em;text-transform:none}.brand span{display:block;margin-top:4px;font:400 11px var(--mono)!important;color:var(--mu)}
+.stats{background:none;border:0;gap:26px}.stats div{background:none;backdrop-filter:none;padding:0;text-align:right}.stats b{font:400 22px/1.1 var(--serif)}
+.stats span,.k{text-transform:none;letter-spacing:.01em;font-size:11.5px}
+.tabs{gap:18px;padding:12px 14px}.tabs button{flex:none;border:0;border-bottom:1px solid transparent;border-radius:0;padding:2px 0;font:400 13px var(--sans)}.tabs button.on{background:none;border-color:var(--tx)}
+.row{grid-template-columns:38px 1fr;border-bottom:1px solid var(--line)}.row p{font:400 15px/1.3 var(--serif)}.row:hover,.row.on{background:#181d27}.mag{font:500 14px var(--mono)}
+h2{font:400 26px/1.15 var(--serif);letter-spacing:-.01em}.big{font:400 68px/1 var(--serif)}
+.grid{background:none;border:0;border-top:1px solid var(--line);gap:0 18px;margin:18px 0;border-radius:0}.grid div{background:none;padding:9px 0;border-bottom:1px solid var(--line)}.grid b{font:400 13px var(--mono)}
+.pill{border:0;border-radius:0;padding:0;font:500 13px var(--mono)}
+canvas#wv{border-radius:0;border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:none}
+.tog{border-radius:0}.hint{font:italic 13px var(--serif);letter-spacing:0}
+:root{--bg:#0a1424;--panel:#0f1d33;--line:#21395c;--tx:#f1ebdd;--mu:#8fa3c0;--red:#ff4d5e;--cor:#ffa04d;--cy:#f4f7fb}
+.glass{border-top:2px solid var(--cor)}
+.brand h1{color:#fff3d6}
+.tabs button.on{border-color:var(--cor);color:var(--cor)}
+.stats b{color:var(--cor)}.stats div:nth-child(2) b{color:var(--red)}.stats div:nth-child(3) b{color:#ffd166}
+.row:hover,.row.on{background:#162845}.grid b{color:#ffd166}canvas#wv{background:#0b1830}
+canvas#an{width:100%;height:170px;display:block;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.up{font-size:12px;color:var(--mu);margin:6px 0}.up input[type=file]{font:12px var(--sans);color:var(--mu);max-width:100%}.up input[type=number]{width:54px;background:#0b1830;color:var(--tx);border:1px solid var(--line);padding:2px 4px;font:12px var(--mono)}
+.toast{position:fixed;top:calc(72px + env(safe-area-inset-top,0px));left:50%;transform:translate(-50%,-16px);opacity:0;background:var(--panel);border:1px solid var(--line);border-top:2px solid var(--red);padding:8px 16px;font:400 14px var(--serif);z-index:9;transition:.4s;pointer-events:none;max-width:90vw}.toast.on{opacity:1;transform:translate(-50%,0)}
+.reg{padding-bottom:0;border-bottom:0}.reg button{font-weight:500}
+.rng{padding-top:4px;gap:12px}#dr{padding:0 14px 10px;gap:6px;align-items:center;border-bottom:1px solid var(--line);color:var(--mu)}#dr input{min-width:0;flex:1;background:#0b1830;color:var(--tx);border:1px solid var(--line);padding:3px 4px;font:12px var(--mono);color-scheme:dark}#dr button{background:var(--cor);color:#1a1206;border:0;padding:4px 8px;font:500 12px var(--sans);cursor:pointer}
+.tog{display:block}.ft{padding:8px 14px;font-size:10.5px;color:var(--mu);border-top:1px solid var(--line);line-height:1.45}
+.lgd{position:fixed;right:16px;bottom:16px;z-index:3;display:flex;gap:10px;align-items:center;font-size:11px;color:var(--mu)}.lgd i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+.lgd button{background:var(--panel);color:var(--tx);border:1px solid var(--line);width:28px;height:28px;font:500 15px var(--sans);cursor:pointer}.lgd button.w{width:auto;padding:0 10px;font-size:12px}
+button:focus-visible,input:focus-visible,.row:focus-visible{outline:2px solid var(--cor);outline-offset:2px}
+</style></head><body>
+<canvas id="gl"></canvas>
+<header><div class="brand"><h1>Gempa Indonesia &amp; Dunia</h1><span id="src">menghubungkan…</span></div>
+<div class="stats"><div><b id="s1">–</b><span>Kejadian</span></div><div><b id="s2">–</b><span>M5+</span></div><div><b id="s3">–</b><span>M Maks</span></div></div></header>
+<aside id="feed" class="glass"><div class="tabs reg"><button data-r="id" class="on">Indonesia</button><button data-r="all">Dunia</button></div><div class="tabs rng"><button data-g="today">Hari ini</button><button data-g="7d" class="on">7 hari</button><button data-g="30d">30 hari</button><button data-g="custom">Tanggal</button></div><div id="dr" style="display:none"><input type="date" id="d1"><span>–</span><input type="date" id="d2"><button id="dgo">Tampilkan</button></div><div class="tabs"><button data-f="0" class="on">Semua</button><button data-f="4">M4.0+</button><button data-f="6">M6.0+</button></div><div id="list"></div><div class="ft">Sumber data: BMKG dan USGS. Estimasi PGA, energi, dan risiko tsunami hanyalah perhitungan kasar, bukan peringatan dini. Informasi resmi: bmkg.go.id</div></aside>
+<button class="tog" onclick="feed.classList.toggle('shut')">Daftar</button>
+<aside id="detail" class="glass"></aside>
+<div class="hint">Geser untuk memutar, gulir untuk zoom, klik sebuah episentrum</div><div class="lgd"><span><i style="background:#ff4d5e"></i>M6+</span><span><i style="background:#ffa04d"></i>M4.5+</span><span><i style="background:#f4f7fb"></i>lebih kecil</span><button onclick="tz=Math.max(1.5,tz-.5)" aria-label="Perbesar">+</button><button onclick="tz=Math.min(6,tz+.5)" aria-label="Perkecil">−</button><button class="w" onclick="go(-2,118,2.8)">Fokus Indonesia</button></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),feed=$('#feed'),detail=$('#detail');
+const SNAP=[[-23.1,-70.4,6.1,28,"Offshore Antofagasta, Chile"],[38.3,142.4,6.8,32,"Off east coast of Honshu, Japan"],[-4.9,152.1,5.9,60,"New Britain region, Papua New Guinea"],[36.5,71.1,5.2,190,"Hindu Kush, Afghanistan"],[-1.8,99.9,5.4,22,"Sumatra, Indonesia"],[4.9,96.2,4.8,15,"Aceh, Indonesia"],[61.3,-150.9,4.6,45,"Southern Alaska"],[38.8,-122.8,3.4,3,"The Geysers, California"],[-33.4,-71.9,5.6,35,"Valparaíso, Chile"],[15.8,-93.9,6.3,70,"Off coast of Chiapas, Mexico"],[-20.2,-174.1,6.6,180,"Tonga region"],[35.2,26.6,4.5,12,"Crete, Greece"],[-41.5,174.3,5.1,18,"Cook Strait, New Zealand"],[27.9,86.5,4.3,10,"Nepal"],[-10.5,161.3,5.7,25,"Solomon Islands"],[39.7,40.1,4.9,9,"Eastern Turkey"],[51.4,179.6,5.3,38,"Rat Islands, Alaska"],[-6.2,130.4,6.0,95,"Banda Sea"],[18.4,-67.1,3.9,14,"Puerto Rico"],[0.7,122.2,5.0,55,"Minahasa, Sulawesi"]].map((a,i)=>({id:i,lat:a[0],lon:a[1],mag:a[2],depth:a[3],place:a[4],time:Date.now()-(i<6?i*2.7e6:(i-4)*1.7*864e5)-3e5,tsu:a[2]>=6.5?1:0}));
+let Q=[],sel=null,filt=0;
+/* ---------- three scene ---------- */
+const cv=$('#gl'),ren=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+ren.setPixelRatio(Math.min(devicePixelRatio,2));
+const sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(38,1,.1,50);cam.position.z=3.6;
+const G=new THREE.Group();sc.add(G);
+{const W=2048,H=1024,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#16466e');g.addColorStop(.5,'#0e3157');g.addColorStop(1,'#10375f');x.fillStyle=g;x.fillRect(0,0,W,H);x.strokeStyle='rgba(160,200,240,.16)';x.lineWidth=1;
+for(let i=0;i<=24;i++){x.beginPath();x.moveTo(i*W/24,0);x.lineTo(i*W/24,H);x.stroke()}for(let i=0;i<=12;i++){x.beginPath();x.moveTo(0,i*H/12);x.lineTo(W,i*H/12);x.stroke()}
+const P=`-168 66 -162 70 -156 71 -141 70 -128 70 -115 68 -95 72 -85 70 -82 67 -94 60 -92 57 -82 55 -79 52 -78 58 -77 62 -70 60 -64 60 -61 56 -56 52 -60 48 -66 45 -70 42 -74 40 -76 35 -81 31 -80 26 -83 29 -85 30 -90 29 -94 29 -97 26 -97 22 -95 19 -91 19 -90 21 -87 21 -88 16 -84 15 -83 10 -80 9 -77 8 -79 8 -84 9 -86 12 -91 14 -96 16 -105 20 -106 23 -112 29 -115 30 -110 23 -112 25 -117 32 -121 35 -124 40 -124 47 -128 51 -135 58 -141 60 -148 60 -153 57 -158 56 -164 55 -158 58 -162 60 -165 62|-77 8 -72 12 -62 10 -52 5 -50 0 -44 -2 -35 -6 -39 -14 -41 -22 -48 -26 -53 -34 -58 -38 -63 -41 -65 -46 -69 -51 -68 -55 -73 -52 -75 -46 -73 -37 -71 -30 -70 -18 -76 -14 -81 -6 -80 -1 -78 2|-17 21 -13 28 -6 35 10 37 11 33 20 31 32 31 34 27 38 18 43 12 51 12 48 5 40 -3 40 -15 35 -24 32 -29 27 -34 20 -35 17 -30 12 -17 13 -8 9 -1 9 4 4 6 -8 4 -13 9 -17 14|-9 37 -9 43 -2 44 -4 48 2 51 5 53 8 54 8 57 10 57 11 54 20 55 24 59 30 60 22 61 25 65 21 66 17 62 18 59 12 56 8 58 5 62 14 67 25 71 40 67 44 68 60 69 70 73 80 73 100 77 113 74 130 71 160 70 180 69 180 65 170 60 163 58 156 51 156 57 162 61 150 59 142 59 135 55 140 52 141 48 135 43 130 42 129 35 126 35 126 38 122 40 118 39 122 37 120 32 122 30 119 25 110 21 108 22 106 18 109 12 105 9 100 13 100 8 103 2 100 6 98 10 98 16 94 17 90 22 87 21 80 15 77 8 73 17 72 21 67 24 57 25 56 27 48 30 51 25 56 24 59 22 52 16 43 13 35 28 35 31 36 36 27 37 26 40 29 41 23 40 24 37 20 40 19 42 13 45 16 41 18 40 16 38 12 42 8 44 3 43 -1 37 -5 36|95.3 5.6 98 4 100.5 2 104 -1 106 -3 105.5 -5.8 102 -4 99 -1.5 96 2.5|105.2 -6.8 108 -6.2 111 -6.5 114.5 -7.7 114 -8.7 108 -7.8|115 -8.3 119 -8.5 123 -8.4 125 -9 120 -10 115 -9|109 2 111 1.5 114 4.5 117 7 119 5 117.5 1 116 -3.5 114 -4 110 -3 109 -0.5|119 -5 120.5 -2.8 119.8 0.5 121 1.3 125 1.5 123 0.5 121 -1 123 -1.5 123 -4.5 121.5 -3 121 -4 120.5 -5.6|131 -1 134 -0.8 138 -1.8 141 -2.6 145 -4.5 147 -6 150 -10 147 -10 143 -9 141 -9 138 -8 138 -6 135 -4 132 -3|120 18.5 122 18.5 122 14 124 13 120 14|122 8 126 9 126 6 124 6|114 -22 114 -26 115 -34 118 -35 124 -33 131 -31.5 138 -35 140 -38 146 -39 150 -37 153 -31 153 -25 146 -19 142 -11 141 -17 136 -15 136 -12 130 -12 126 -14 122 -17|130.5 31 132 34 135 34 138 34.5 141 38 142 40 141 41.4 140 40 139.5 38 136.5 36.5 133 35.5 131 34|140 42 145 43.3 142 45.5|-5 50 1 51 1.7 53 -2 55.5 -2 57.5 -5 58.5 -6 56 -3 54 -5 52|-10 52 -6 52 -6 55 -9 54.5|44 -25 47 -25 50 -15 49 -12 44 -17|172 -34.5 178 -37.5 175 -41.5 174 -39|172.5 -40.5 174 -41.5 171 -45 167 -46|-73 78 -60 82 -30 83 -20 78 -20 70 -43 60 -52 64 -55 70|-24 65 -14 66 -14 64.5 -22 63.5|-85 22 -77 20 -74 20 -80 23|120 23 121.5 25 122 24 120.8 22|-180 -78 -150 -77 -100 -73 -70 -72 -62 -65 -58 -63 -55 -70 -20 -72 20 -69 70 -67 100 -66 140 -66 165 -70 180 -78 180 -90 -180 -90`.split('|');
+const mc=document.createElement('canvas');mc.width=W;mc.height=H;const mx=mc.getContext('2d');mx.fillStyle='#fff';const CL=['#d8b26e','#82b57d','#e39a5c','#b9c081','#ef7a5f','#ef7a5f','#ef7a5f','#ef7a5f','#ef7a5f','#ef7a5f','#d9a05a','#d9a05a','#dd9358','#c7a6d6','#c7a6d6','#b9c081','#b9c081','#e39a5c','#82b57d','#82b57d','#d8e2ee','#82b57d','#82b57d','#c7a6d6','#eef3f8'];x.strokeStyle='rgba(8,22,40,.65)';x.lineWidth=1.1;x.lineJoin='round';
+P.forEach((s,k)=>{x.fillStyle=CL[k]||'#a9b58a';const n=s.trim().split(/\s+/).map(Number);const pt=new Path2D();for(let i=0;i<n.length;i+=2){const px=(n[i]+180)/360*W,py=(90-n[i+1])/180*H;i?pt.lineTo(px,py):pt.moveTo(px,py)}pt.closePath();x.fill(pt);mx.fill(pt)});
+const bl=document.createElement('canvas');bl.width=W;bl.height=H;const bx=bl.getContext('2d');bx.filter='blur(12px)';bx.drawImage(mc,0,0);
+const sm=mx.getImageData(0,0,W,H).data,bd=bx.getImageData(0,0,W,H).data,im=x.getImageData(0,0,W,H),d=im.data;
+const H2=(i,j)=>{const s=Math.sin(i*127.1+j*311.7)*43758.5;return s-Math.floor(s)};
+const vn=(px,py,s)=>{const gx=px/s,gy=py/s,i=Math.floor(gx),j=Math.floor(gy),fx=gx-i,fy=gy-j,u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy);return(H2(i,j)*(1-u)+H2(i+1,j)*u)*(1-v)+(H2(i,j+1)*(1-u)+H2(i+1,j+1)*u)*v};
+const L=(a,b,t)=>a+(b-a)*t;const BI=[[0,[28,96,50]],[14,[158,142,80]],[30,[78,122,64]],[52,[52,86,60]],[66,[190,200,196]],[80,[238,244,248]]];
+const bio=a=>{for(let k=1;k<BI.length;k++)if(a<=BI[k][0]){const t=(a-BI[k-1][0])/(BI[k][0]-BI[k-1][0]);return BI[k][1].map((c,q)=>L(BI[k-1][1][q],c,t))}return BI[5][1]};
+for(let py=0;py<H;py++){const lat=90-py/H*180;for(let px=0;px<W;px++){const o=(py*W+px)*4,n=vn(px,py,40)*.6+vn(px,py,9)*.4;let r,g,b;
+if(sm[o+3]>127){const c=bio(Math.abs(lat)+(n-.5)*16),mt=Math.max(0,(vn(px,py,16)-.62)*3),sh=.78+n*.4;r=L(c[0],140,mt)*sh;g=L(c[1],125,mt)*sh;b=L(c[2],110,mt)*sh}
+else{const f=Math.pow(bd[o+3]/255,1.6),dp=.75+n*.25;r=L(10,48,f)*dp;g=L(38,128,f)*dp;b=L(76,160,f)*dp}
+d[o]=r;d[o+1]=g;d[o+2]=b;d[o+3]=255}}x.putImageData(im,0,0);
+const t=new THREE.CanvasTexture(c);t.anisotropy=8;const m=new THREE.Mesh(new THREE.SphereGeometry(1,96,96),new THREE.MeshBasicMaterial({map:t}));m.rotation.y=-Math.PI/2;G.add(m);sc.add(new THREE.Mesh(new THREE.SphereGeometry(1.003,64,64),new THREE.ShaderMaterial({transparent:true,depthWrite:false,vertexShader:'varying vec3 n;void main(){n=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec3 n;void main(){float l=dot(n,normalize(vec3(-.5,.45,.75)));gl_FragColor=vec4(0.,.015,.05,(1.-smoothstep(-.5,.75,l))*.6);}'})))}
+const ll=(la,lo,r=1)=>{la*=Math.PI/180;lo*=Math.PI/180;return new THREE.Vector3(r*Math.cos(la)*Math.sin(lo),r*Math.sin(la),r*Math.cos(la)*Math.cos(lo))};
+{const pts=[];for(let la=-60;la<=60;la+=30)for(let lo=0;lo<360;lo+=4){pts.push(ll(la,lo,1.002),ll(la,lo+4,1.002))}
+for(let lo=0;lo<360;lo+=30)for(let la=-88;la<88;la+=4){pts.push(ll(la,lo,1.002),ll(la+4,lo,1.002))}
+G.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x1e293b})))}
+sc.add(new THREE.Mesh(new THREE.SphereGeometry(1.14,48,48),new THREE.ShaderMaterial({transparent:true,side:THREE.BackSide,blending:THREE.AdditiveBlending,depthWrite:false,
+vertexShader:'varying vec3 n;void main(){n=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+fragmentShader:'varying vec3 n;void main(){float i=pow(.62-n.z,3.);gl_FragColor=vec4(.35,.65,.95,1.)*i*.5;}'})));
+let marks=[],rings=[];
+const colr=m=>m>=6?0xff4d5e:m>=4.5?0xffa04d:0xf4f7fb;
+function build(){marks.forEach(m=>{G.remove(m);m.material.dispose()});rings.forEach(m=>{G.remove(m);m.material.dispose();m.geometry.dispose()});marks=[];rings=[];
+Q.filter(vis).sort((a,b)=>b.mag-a.mag).slice(0,1800).forEach(q=>{const s=(.007+.0035*Math.max(0,q.mag-2.5))*(inID(q)?1.35:1),p=ll(q.lat,q.lon,1.004);
+const m=new THREE.Mesh(geo(s),new THREE.MeshBasicMaterial({color:colr(q.mag)}));m.position.copy(p);m.userData.q=q;G.add(m);marks.push(m);
+if(q.mag>=4.3){const r=new THREE.Mesh(new THREE.RingGeometry(.85,1,40),new THREE.MeshBasicMaterial({color:colr(q.mag),transparent:true,side:THREE.DoubleSide,depthWrite:false}));
+r.position.copy(p);r.lookAt(p.clone().multiplyScalar(2));r.userData={s,ph:Math.random(),q};G.add(r);rings.push(r)}})}
+/* ---------- interaction ---------- */
+let tx=-.03,ty=-2.06,zoom=3.6,tz=2.8,auto=false,down=null,fly=false;
+G.rotation.set(tx,ty,0);
+cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,m:0};auto=false;fly=false;cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',e=>{if(!down)return;const dx=e.clientX-down.x,dy=e.clientY-down.y;down.m+=Math.abs(dx)+Math.abs(dy);down.x=e.clientX;down.y=e.clientY;const k=.005*(zoom/3.6);ty+=dx*k;tx=Math.max(-1.3,Math.min(1.3,tx+dy*k))});
+cv.addEventListener('pointerup',e=>{if(down&&down.m<6)pick(e);down=null});
+cv.addEventListener('wheel',e=>{e.preventDefault();tz=Math.max(1.5,Math.min(6,tz+e.deltaY*.002))},{passive:false});
+const ray=new THREE.Raycaster();ray.params.Points={threshold:.03};
+function pick(e){const v=new THREE.Vector2(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(v,cam);
+let best=null,bd=1e9;marks.forEach(m=>{const w=m.getWorldPosition(new THREE.Vector3());if(w.dot(cam.position)<1.01)return;
+const d=ray.ray.distanceToPoint(w);const th=.022+m.geometry.parameters.radius;if(d<th&&d<bd){bd=d;best=m}});
+if(best)select(best.userData.q)}
+function select(q){sel=q;auto=false;fly=true;tx=q.lat*Math.PI/180;let t=-q.lon*Math.PI/180,d=((t-ty)%(2*Math.PI)+3*Math.PI)%(2*Math.PI)-Math.PI;ty+=d;tz=1.9;feed.classList.add('shut');
+renderDetail(q);detail.classList.add('open');renderList()}
+function closeD(){sel=null;detail.classList.remove('open');tz=reg==='id'?2.8:3.6;if(innerWidth>760)feed.classList.remove('shut');renderList()}
+/* ---------- seismic processing ---------- */
+const proc=q=>{const M=q.mag,d=q.depth,E=Math.pow(10,1.5*M+4.8),tnt=E/4.184e9,r0=Math.hypot(d,7.3);
+const pga=r=>Math.pow(10,-1.02+.249*M-Math.log10(r)-.00255*r);
+let R=0;for(let r=5;r<2500;r+=5){if(pga(Math.hypot(r,d))>=.01)R=r;else break}
+const t=(M>=7.5&&d<100)?['Tinggi',"var(--red)"]:(M>=6.8&&d<70)||q.tsu?['Meningkat',"var(--cor)"]:(M>=6.0&&d<50)?['Rendah–Sedang',"#fbbf24"]:['Minim',"var(--cy)"];
+return{E,tnt,pga:pga(r0),R,t}};
+const fmtT=t=>t>=1e6?(t/1e6).toFixed(1)+' Mt':t>=1e3?(t/1e3).toFixed(1)+' kt':t.toFixed(0)+' t';
+const ago=ms=>{const m=(Date.now()-ms)/6e4;return m<60?~~m+' mnt lalu':m<1440?~~(m/60)+' jam lalu':~~(m/1440)+' hari lalu'};
+const tr=s=>s.replace(/(\d+) km ([NSEW]+) of/,(m,a,d)=>a+' km arah '+d.replace(/N/g,'U').replace(/E/g,'T').replace(/W/g,'B')+' dari').replace(/off the coast of/i,'Lepas pantai').replace(/offshore/i,'Lepas pantai').replace(/region/i,'wilayah');
+const co=(a,b)=>`${Math.abs(a).toFixed(3)}°${a<0?b[1]:b[0]}`;
+function renderDetail(q){const p=proc(q);
+detail.innerHTML=`<div class="pad"><button class="x" onclick="closeD()">×</button><div class="k">Kejadian terpilih</div><h2>${tr(q.place)}</h2>
+<div style="color:var(--mu);font-family:var(--mono);font-size:11px">${new Date(q.time).toISOString().replace('T',' ').slice(0,19)} UTC · ${new Date(q.time+252e5).toISOString().slice(11,19)} WIB · ${ago(q.time)}</div><div class="k" style="margin-top:6px">Sumber: ${q.src||'USGS'}${q.felt?' · Dirasakan: '+q.felt:''}${q.mmi!=null?' · Intensitas MMI (USGS): '+q.mmi.toFixed(1):''}${q.pager?' · PAGER: '+q.pager:''}${q.nfelt?' · '+q.nfelt+' laporan dirasakan':''}</div>
+<div style="display:flex;align-items:flex-end;gap:14px;margin-top:18px"><div class="big" style="color:${q.mag>=6?'var(--red)':'var(--cor)'}">${q.mag.toFixed(1)}</div><div class="k" style="padding-bottom:4px">Magnitudo<br>momen</div></div>
+<div class="grid"><div><span class="k">Lintang</span><b>${co(q.lat,'US')}</b></div><div><span class="k">Bujur</span><b>${co(q.lon,'TB')}</b></div>
+<div><span class="k">Kedalaman</span><b>${q.depth.toFixed(1)} km</b></div><div><span class="k">Estimasi PGA (episentrum)</span><b>${p.pga.toFixed(3)} g</b></div>
+<div><span class="k">Energi dilepaskan</span><b>${p.E.toExponential(2)} J</b></div><div><span class="k">Setara TNT</span><b>${fmtT(p.tnt)}</b></div>
+<div><span class="k">Radius terasa (≥0.01 g)</span><b>${p.R} km</b></div><div><span class="k">Risiko tsunami</span><b><span class="pill" style="color:${p.t[1]}">${p.t[0]}</span></b></div></div>
+<div class="k"><span id="wst">Rekaman seismograf nyata: mencari stasiun…</span></div><div class="k" style="margin:16px 0 4px">Analisis seismogram (deteksi STA/LTA)</div><canvas id="an"></canvas><div class="grid" id="ares"></div><div class="k">Analisis gambar seismogram Anda</div><div class="up"><input type="file" id="upl" accept="image/*"><div style="margin-top:4px">Durasi gambar <input type="number" id="dur" value="60" min="1"> detik (isi sebelum memilih gambar)</div></div>
+<p style="color:var(--mu);font-size:11px;margin-top:10px">Nilai turunan merupakan estimasi awal (energi Gutenberg–Richter, atenuasi ala Joyner–Boore) — bukan panduan resmi mitigasi bencana. Rujuk BMKG untuk informasi resmi.</p></div>`;
+wc=$('#wv');startW=performance.now();upMode=false;realWave(q);$('#upl').onchange=upload}
+/* ---------- waveform ---------- */
+let wc,startW=0;const wd=q=>60+q.mag*22;
+const hash=x=>{const s=Math.sin(x*127.1)*43758.5453;return s-Math.floor(s)-.5};
+function wave(now){if(!wc||!sel||upMode)return;const w=wc.clientWidth,h=130,dpr=devicePixelRatio;if(wc.width!==w*dpr){wc.width=w*dpr;wc.height=h*dpr}
+const c=wc.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);const D=wd(sel),tP=D/6.5,tS=D/3.75,W=tS+28,A=(sel.mag-2)/3.2;
+c.strokeStyle='#16213a';c.lineWidth=1;c.beginPath();c.moveTo(0,h/2);c.lineTo(w,h/2);c.stroke();
+const prog=((now-startW)/1000%7)/6*1.0,lim=Math.min(1,prog)*w;
+c.strokeStyle='#7fd1ff';c.lineWidth=1.2;c.beginPath();
+for(let x=0;x<=lim;x++){const t=x/w*W;let y=hash(t*9)*.08;
+if(t>tP)y+=A*.35*Math.exp(-(t-tP)/5)*Math.sin(16*(t-tP))*(1-Math.exp(-(t-tP)*3));
+if(t>tS)y+=A*1.0*Math.exp(-(t-tS)/9)*Math.sin(7*(t-tS))*(1-Math.exp(-(t-tS)*2));
+y=Math.max(-1,Math.min(1,y));x?c.lineTo(x,h/2-y*h*.44):c.moveTo(x,h/2)}c.stroke();
+[[tP,'P','#6ee7b7'],[tS,'S','#ff4d5e']].forEach(([t,l,col])=>{const x=t/W*w;if(x>lim)return;c.strokeStyle=col;c.setLineDash([3,3]);c.beginPath();c.moveTo(x,6);c.lineTo(x,h-6);c.stroke();c.setLineDash([]);c.fillStyle=col;c.font='500 10px JetBrains Mono,monospace';c.fillText(l+' '+t.toFixed(1)+'s',x+4,14)})}
+/* ---------- analisis ---------- */
+let upMode=false;
+const sigF=(t,q)=>{const D=wd(q),tP=D/6.5,tS=D/3.75,A=(q.mag-2)/3.2;let y=hash(t*9)*.08;if(t>tP)y+=A*.35*Math.exp(-(t-tP)/5)*Math.sin(16*(t-tP))*(1-Math.exp(-(t-tP)*3));if(t>tS)y+=A*Math.exp(-(t-tS)/9)*Math.sin(7*(t-tS))*(1-Math.exp(-(t-tS)*2));return Math.max(-1,Math.min(1,y))};
+const Wof=q=>wd(q)/3.75+28,trace=q=>Array.from({length:900},(_,i)=>sigF(i/900*Wof(q),q));
+function runAn(a,W,src,raw,sr,pc){const N=a.length,dt=W/N,sta=Math.max(2,Math.round(.6/dt)),lta=Math.round(8/dt),cs=[0];a.forEach((v,i)=>cs[i+1]=cs[i]+v*v);
+const av=(i,j)=>{i=Math.max(0,i);j=Math.min(N,j);return(cs[j]-cs[i])/Math.max(1,j-i)};
+const r=a.map((_,i)=>i<lta?0:av(i-sta,i)/(av(i-lta,i-sta)+1e-5));
+let p=r.findIndex(v=>v>4),s=-1;if(p>=0){p=Math.max(0,p-Math.round(sta/2));for(let i=p+Math.round(2/dt);i<N-sta*2;i++)if(av(i,i+2*sta)/(av(i-4*sta,i)+1e-5)>3){s=i;break}}
+const mx=Math.max(...a.map(Math.abs)),tP=p<0?null:p*dt,tS=s<0?null:s*dt;let fq=null,du=null,sp=null;
+if(s>=0){let z=0;if(raw){const i0=Math.round(s*dt*sr),i1=Math.min(raw.length-1,i0+Math.round(20*sr));for(let i=i0+1;i<=i1;i++)if(raw[i]*raw[i-1]<0)z++;fq=z/2/Math.max(1e-3,(i1-i0)/sr)}else{const e=Math.min(N-1,s+Math.round(10/dt));for(let i=s+1;i<=e;i++)if(a[i]*a[i-1]<0)z++;fq=z/2/((e-s)*dt)}
+let f1=-1,l1=-1;a.forEach((v,i)=>{if(Math.abs(v)>.25*mx){if(f1<0)f1=i;l1=i}});du=(l1-f1)*dt;
+const pk=(i,j)=>Math.max(...a.slice(i,j).map(Math.abs));sp=pk(s,Math.min(N,s+Math.round(8/dt)))/(pk(p,s)||1)}
+const cv=$('#an');if(!cv)return;const w=cv.clientWidth,h=170,dp=devicePixelRatio;cv.width=w*dp;cv.height=h*dp;const c=cv.getContext('2d');c.setTransform(dp,0,0,dp,0,0);
+c.strokeStyle='#7fd1ff';c.lineWidth=1;c.beginPath();a.forEach((v,i)=>{const X=i/N*w,Y=48-v/(mx||1)*42;i?c.lineTo(X,Y):c.moveTo(X,Y)});c.stroke();
+const rm=Math.max(8,...r);c.strokeStyle='#ffa04d';c.beginPath();r.forEach((v,i)=>{const X=i/N*w,Y=162-v/rm*58;i?c.lineTo(X,Y):c.moveTo(X,Y)});c.stroke();
+c.strokeStyle='#3a5a85';c.setLineDash([3,3]);c.beginPath();c.moveTo(0,162-4/rm*58);c.lineTo(w,162-4/rm*58);c.stroke();c.setLineDash([]);
+c.font='10px IBM Plex Mono,monospace';c.fillStyle='#8fa3c0';c.fillText('amplitudo',4,11);c.fillText('STA/LTA (ambang 4)',4,108);
+[[p,'P','#6ee7b7'],[s,'S','#ff4d5e']].forEach(([i,l,col])=>{if(i<0)return;const X=i/N*w;c.strokeStyle=col;c.beginPath();c.moveTo(X,0);c.lineTo(X,h);c.stroke();c.fillStyle=col;c.fillText(l,X+3,22)});
+const f=(v,u,n=1)=>v==null?'—':v.toFixed(n)+u,ok=tP!=null&&tS!=null,spd=ok?tS-tP:null;
+$('#ares').innerHTML=[['Sumber',src],['Tiba gelombang P',f(tP,' dtk')],['Tiba gelombang S',f(tS,' dtk')],['Selang S–P',f(spd,' dtk')],['Jarak (dari selang S–P, perkiraan)',f(ok?spd*8.86:null,' km',0)],[pc!=null?'Amplitudo puncak (counts)':'Amplitudo puncak (relatif)',pc!=null?Math.round(pc).toLocaleString('id-ID'):f(mx,'',2)],['Frekuensi dominan S',f(fq,' Hz',2)],['Durasi getaran kuat',f(du,' dtk',0)],['Rasio amplitudo S/P',f(sp,'×')]].map(x=>`<div><span class="k">${x[0]}</span><b>${x[1]}</b></div>`).join('')}
+function upload(e){const fl=e.target.files[0];if(!fl)return;const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const N=900,h=Math.min(400,Math.round(im.height*N/im.width)),c=document.createElement('canvas');c.width=N;c.height=h;const t=c.getContext('2d',{willReadFrequently:true});t.drawImage(im,0,0,N,h);const px=t.getImageData(0,0,N,h).data,lum=i=>.3*px[i]+.59*px[i+1]+.11*px[i+2];
+const hs=[];for(let i=0;i<N*h;i+=7)hs.push(lum(i*4));hs.sort((a,b)=>a-b);const bg=hs[hs.length>>1],ys=[];let last=h/2;
+for(let x=0;x<N;x++){let s=0,n=0;for(let y=0;y<h;y++)if(Math.abs(lum((y*N+x)*4)-bg)>55){s+=y;n++}if(n)last=s/n;ys.push(last)}
+const mean=ys.reduce((a,b)=>a+b)/N,a=ys.map(v=>(mean-v)/(h/2)),m=Math.max(...a.map(Math.abs))||1;upMode=true;runAn(a.map(v=>v/m),+$('#dur').value||60,'Gambar unggahan')};im.src=fr.result};fr.readAsDataURL(fl)}
+/* ---------- BMKG + wilayah ---------- */
+let reg='id';const inID=q=>q.src==='BMKG'||(q.lat>-11.5&&q.lat<6.5&&q.lon>94.5&&q.lon<141.5),inR=q=>(reg==='all'||inID(q))&&rIn(q),vis=q=>q.mag>=filt&&inR(q);
+const dist=(a,b)=>{const r=Math.PI/180;return 6371*Math.hypot((b.lon-a.lon)*r*Math.cos((a.lat+b.lat)*r/2),(b.lat-a.lat)*r)};
+async function bmkg(){const out=[];await Promise.all(['autogempa','gempaterkini','gempadirasakan'].map(async n=>{for(const u of ['https://data.bmkg.go.id/DataMKG/TEWS/'+n+'.json','/api/bmkg/'+n+'.json']){try{const r=await fetch(u,{signal:AbortSignal.timeout(8000)});if(!r.ok)continue;const g=(await r.json()).Infogempa.gempa;(Array.isArray(g)?g:[g]).forEach(e=>{const[la,lo]=e.Coordinates.split(',').map(Number),pt=e.Potensi||'';out.push({id:'bmkg-'+e.DateTime+e.Coordinates,lat:la,lon:lo,mag:+e.Magnitude,depth:parseFloat(e.Kedalaman)||10,place:e.Wilayah,time:Date.parse(e.DateTime),tsu:/tidak berpotensi/i.test(pt)?0:/berpotensi/i.test(pt)?1:0,src:'BMKG',felt:e.Dirasakan||''})});return}catch(_){}}}));return out}
+function merge(us,bm){const seen=new Set(),B=bm.filter(b=>!seen.has(b.id)&&seen.add(b.id));return B.concat(us.filter(u=>!B.some(b=>Math.abs(b.time-u.time)<18e4&&dist(b,u)<200&&Math.abs(b.mag-u.mag)<1.2)))}
+function go(lat,lon,z){fly=true;auto=false;tx=lat*Math.PI/180;const t=-lon*Math.PI/180,d=((t-ty)%(2*Math.PI)+3*Math.PI)%(2*Math.PI)-Math.PI;ty+=d;tz=z}
+document.querySelectorAll('.reg button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.reg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');reg=b.dataset.r;closeD();build();renderList();{Q=[];load()}if(reg==='id')go(-2,118,2.8);else{fly=false;auto=true;tz=3.6}});
+/* ---------- rentang tanggal ---------- */
+let rng='7d',d1='',d2='';const $d=t=>new Date(t).toISOString().slice(0,10);
+function usgsURL(){const B='https://earthquake.usgs.gov/';if(reg==='all'&&(rng==='today'||rng==='7d'))return B+'earthquakes/feed/v1.0/summary/2.5_week.geojson';
+let s,e;if(rng==='30d'){e=Date.now()+864e5;s=Date.now()-30*864e5}else if(rng==='today'||rng==='7d'){e=Date.now()+864e5;s=Date.now()-(rng==='today'?2:7)*864e5}else{s=Date.parse(d1);e=Date.parse(d2)+864e5}
+return B+'fdsnws/event/1/query?format=geojson&orderby=time&limit=20000&starttime='+$d(s)+'&endtime='+$d(e)+'&minmagnitude='+(reg==='id'?0:4)+(reg==='id'?'&minlatitude=-11.5&maxlatitude=6.5&minlongitude=94.5&maxlongitude=141.5':'')}
+document.querySelectorAll('.rng button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.rng button').forEach(x=>x.classList.remove('on'));b.classList.add('on');rng=b.dataset.g;$('#dr').style.display=rng==='custom'?'flex':'none';
+if(rng==='custom'){if(!d1){$('#d2').value=$d(Date.now());$('#d1').value=$d(Date.now()-7*864e5)}$('#dgo').onclick();return}Q=[];closeD();load()});
+$('#dgo').onclick=()=>{d1=$('#d1').value;d2=$('#d2').value;if(!d1||!d2||d1>d2){toast('Rentang tanggal tidak valid');return}Q=[];closeD();load()};
+function rIn(q){const n=Date.now();return rng==='today'?q.time>=new Date().setHours(0,0,0,0):rng==='7d'?q.time>=n-7*864e5:rng==='30d'?q.time>=n-30*864e5:q.time>=Date.parse(d1)&&q.time<Date.parse(d2)+864e5}
+/* ---------- salinan data nyata (USGS 4.5_week + BMKG), diambil 18 Okt 2026 ---------- */
+const U=`-6.5103,146.0489,4.8,124,1792283309,31 km SE of Kainantu, Papua New Guinea
+-21.1752,-67.2144,4.6,189,1792255965,88 km SSW of Uyuni, Bolivia
+14.0469,-92.8552,5.2,10,1792245574,86 km SW of Brisas Barra de Suchiate, Mexico
+-8.7339,124.3423,4.6,91,1792228060,51 km N of Pante Makasar, Timor Leste
+-15.5117,168.2516,4.8,10,1792227591,110 km NE of Norsup, Vanuatu
+-13.3461,167.0474,4.5,145,1792222802,80 km NW of Sola, Vanuatu
+-8.1086,120.2824,4.5,10,1792221648,59 km NNW of Ruteng, Indonesia
+28.0179,66.1708,5.7,10,1792213617,48 km WNW of Khuzdar, Pakistan
+-16.0441,-177.7283,4.8,439,1792210745,196 km SSE of Alo, Wallis and Futuna
+14.0576,-93.2479,4.9,10,1792198980,115 km SW of Puerto Madero, Mexico
+38.305,20.6863,4.6,10,1792195070,6 km NNE of Sámi, Greece
+7.6127,-80.9354,4.6,10,1792190463,12 km SSE of Tebario, Panama
+27.7264,57.3327,4.5,10,1792186226,70 km NNE of Mīnāb, Iran
+-23.6209,-179.7966,4.5,535,1792185997,south of the Fiji Islands
+1.2955,-85.2725,5.2,10,1792179250,off the coast of Ecuador
+-5.524,35.1303,4.6,10,1792167445,41 km NNE of Kilimatinde, Tanzania
+51.4073,159.5232,4.7,10,1792163327,186 km SSE of Vilyuchinsk, Russia
+-18.4686,-175.4291,4.6,248,1792163194,153 km W of Neiafu, Tonga
+-49.8826,163.4041,5,10,1792159794,Auckland Islands, New Zealand region
+6.853,-77.3681,4.5,26,1792155761,51 km ESE of Juradó, Colombia
+6.0268,125.7789,4.7,10,1792153105,10 km SE of Lamitan, Philippines
+12.328,144.1189,4.9,10,1792151839,119 km SSW of Merizo Village, Guam
+15.2777,-92.7881,4.8,109,1792150784,7 km WSW of Soconusco, Mexico
+7.8392,126.799,4.9,74,1792142024,31 km ENE of Kinablangan, Philippines
+-55.2392,-126.4961,4.8,10,1792141468,southern East Pacific Rise
+13.934,-92.8623,4.7,10,1792125760,95 km SW of Brisas Barra de Suchiate, Mexico
+51.9848,157.2701,6.9,135,1792121731,76 km NE of Ozernovskiy, Russia
+13.9013,-91.8178,4.5,59,1792096765,44 km SSE of Champerico, Guatemala
+10.3031,-86.049,4.5,23,1792078838,22 km W of Tamarindo, Costa Rica
+51.3801,159.8474,4.9,10,1792076392,198 km SSE of Vilyuchinsk, Russia
+7.4452,-80.0893,4.5,10,1792071097,9 km SSE of Los Asientos, Panama
+-15.0429,-173.4439,5.2,10,1792070971,107 km NNE of Hihifo, Tonga
+52.0024,-169.576,4.7,10,1792070186,114 km SSW of Nikolski, Alaska
+-13.8878,166.0921,5.2,10,1792069611,157 km W of Sola, Vanuatu
+0.9022,-85.3587,5.4,10,1792063003,off the coast of Ecuador
+64.22,-152.746,5.6,5,1792062421,43 km NNW of Lake Minchumina, Alaska
+-38.5478,175.3814,5.3,286,1792041931,43 km SSE of Otorohanga, New Zealand
+-13.409,-172.0686,5.1,13,1792035389,36 km E of Safotu, Samoa
+-13.4327,-172.1174,4.8,13,1792035368,30 km E of Safotu, Samoa
+54.0004,158.1848,4.5,183,1792020059,82 km SSW of Mil’kovo, Russia
+-0.343,-19.2064,4.7,10,1791987441,central Mid-Atlantic Ridge
+-20.9899,-178.7711,5.9,585,1791974987,Fiji region
+-5.4767,35.0428,4.6,10,1791969378,42 km NNE of Kilimatinde, Tanzania
+-5.443,152.2617,4.9,35,1791959226,121 km S of Kokopo, Papua New Guinea
+7.5657,-80.6021,4.7,10,1791954575,10 km S of La Mesa, Panama
+-20.3552,-70.2699,4.9,45,1791947469,16 km WSW of La Tirana, Chile
+5.0056,-27.5843,4.8,10,1791946934,North Atlantic Ocean
+-5.4957,152.3942,4.7,10,1791946767,128 km S of Kokopo, Papua New Guinea
+-4.4488,152.9436,4.6,10,1791943934,75 km E of Kokopo, Papua New Guinea
+-29.219,-71.9168,5,10,1791938205,98 km NW of Coquimbo, Chile
+-29.2155,-71.8024,5.1,22,1791937847,93 km NNW of Coquimbo, Chile
+6.7888,-73.0065,4.8,162,1791926661,5 km NW of Cepitá, Colombia
+-5.4832,152.1364,6,21,1791917103,126 km S of Kokopo, Papua New Guinea
+-5.4453,152.1025,5.1,37,1791908895,123 km S of Kokopo, Papua New Guinea
+5.3478,125.5183,4.8,66,1791904904,8 km SE of Sarangani, Philippines
+-5.5103,152.1283,5.3,30,1791902172,129 km S of Kokopo, Papua New Guinea
+7.7902,-81.6085,4.5,10,1791895892,26 km SSW of Zapotillo, Panama
+-0.4085,-19.4308,6.8,10,1791894187,central Mid-Atlantic Ridge
+51.6162,159.9496,4.9,10,1791893141,180 km SE of Vilyuchinsk, Russia
+-9.9266,118.8246,4.5,35,1791884908,71 km SW of Tambolaka, Indonesia
+38.5166,68.8922,4.7,10,1791884472,9 km NE of Boshkengash, Tajikistan
+-28.556,-12.5205,5.3,10,1791880708,southern Mid-Atlantic Ridge
+38.8294,104.9421,4.6,10,1791879304,63 km W of Bayan Hot, China
+7.7685,-81.4531,4.7,10,1791873544,14 km WNW of Río Grande, Panama
+19.6853,120.7047,4.7,10,1791871284,124 km N of Pagudpud, Philippines
+0.1685,-19.8598,6.7,10,1791870286,central Mid-Atlantic Ridge
+-9.4473,113.8887,5.1,10,1791864015,119 km SSW of Gambiran Satu, Indonesia
+7.582,-80.5888,4.7,10,1791859682,9 km SSE of La Mesa, Panama
+-58.1423,-26.2058,4.5,140,1791857817,South Sandwich Islands region
+7.7956,-81.5285,4.6,10,1791849721,23 km WNW of Río Grande, Panama
+7.8267,-81.6339,4.5,10,1791848713,24 km SW of Zapotillo, Panama
+7.7328,-81.4934,4.9,10,1791848206,17 km W of Río Grande, Panama
+7.6896,-81.4896,6.1,11,1791847236,17 km W of Río Grande, Panama
+7.9416,-81.4309,4.5,10,1791841734,5 km WSW of Calidonia, Panama
+7.8015,-81.5113,4.5,10,1791841410,21 km WNW of Río Grande, Panama
+7.7181,-81.5677,4.8,10,1791835525,25 km W of Río Grande, Panama
+-16.5382,67,4.6,10,1791829819,Mid-Indian Ridge
+-16.294,67.1096,4.7,10,1791829661,Mid-Indian Ridge
+-33.721,-71.8113,4.8,34,1791829038,23 km SW of San Antonio, Chile
+48.2626,154.8502,4.9,35,1791819873,283 km SSW of Severo-Kuril’sk, Russia
+10.1601,93.0837,4.6,91,1791819441,170 km SSE of Port Blair, India
+51.4264,174.8342,4.6,10,1791815393,194 km SE of Attu Station, Alaska
+-16.2931,67.099,4.8,10,1791812681,Mid-Indian Ridge
+7.3997,-80.4946,4.5,10,1791811038,6 km W of Tonosí, Panama
+-9.152,113.0997,4.6,55,1791806288,100 km SSW of Kencong, Indonesia
+-8.873,67.3909,5.4,10,1791804523,Mid-Indian Ridge
+0.6834,125.9293,4.6,49,1791795554,122 km SE of Bitung, Indonesia
+-8.237,128.9661,4.7,22,1791793808,219 km E of Lospalos, Timor Leste
+7.6987,-80.9143,4.5,10,1791789366,7 km ESE of Tebario, Panama
+-8.3245,112.2189,4.6,121,1791782889,25 km SSE of Blitar, Indonesia
+-25.1916,179.9814,4.5,471,1791782150,south of the Fiji Islands
+-18.723,-175.1452,5.5,195,1791779892,122 km W of Neiafu, Tonga
+42.5006,144.2781,4.5,66,1791776697,53 km S of Kushiro, Japan
+39.1707,72.1789,4.5,27,1791774253,42 km S of Daroot-Korgon, Kyrgyzstan
+7.6112,-80.0698,4.5,10,1791771749,7 km ENE of Lajamina, Panama
+-49.9461,-114.2488,4.8,10,1791770364,southern East Pacific Rise
+24.7203,94.6022,4.8,78,1791768500,56 km E of Yairipok, India
+25.1035,141.1383,4.6,200,1791766392,Volcano Islands, Japan region
+12.6577,-89.7633,4.5,35,1791760835,103 km SSW of La Libertad, El Salvador
+7.7569,-81.1135,4.6,10,1791758424,0 km NE of Leones Arriba, Panama
+-4.079,136.2635,4.5,10,1791756445,116 km SE of Nabire, Indonesia
+-50.5415,-112.6646,4.9,10,1791755628,southern East Pacific Rise
+0.5235,121.697,5.2,111,1791754493,152 km W of Gorontalo, Indonesia
+7.7202,-81.5862,4.5,10,1791753560,27 km W of Río Grande, Panama
+-3.1323,130.6537,4.6,10,1791744477,184 km W of Fakfak, Indonesia
+-19.3844,-172.7162,4.7,10,1791741995,156 km ESE of Neiafu, Tonga
+7.7084,-81.6209,4.8,10,1791738689,31 km W of Río Grande, Panama
+49.7885,155.7863,5.2,83,1791738029,101 km SSW of Severo-Kuril’sk, Russia
+35.5301,140.4377,4.7,56,1791735865,6 km ESE of Tōgane, Japan
+-7.0062,155.7021,6.2,53,1791727643,79 km SSE of Panguna, Papua New Guinea
+-16.7849,-72.6601,5.2,45,1791726179,18 km SSE of Camaná, Peru
+23.5015,126.1264,4.8,10,1791720798,165 km SSE of Miyakojima, Japan
+53.0788,159.8624,4.6,69,1791717507,82 km E of Petropavlovsk-Kamchatsky, Russia
+-20.3859,-177.6638,4.6,513,1791713141,260 km WNW of Houma, Tonga
+-23.6919,179.9648,4.5,546,1791703732,south of the Fiji Islands
+-14.7335,168.0696,4.7,11,1791695277,110 km SSE of Sola, Vanuatu`;
+const B=`2026-10-11T21:34:53+00:00|0.64|121.75|5.7|76|29 km BaratLaut POHUWATO-GORONTALO|
+2026-10-11T03:30:20+00:00|-8.73|106.47|5.7|10|193 km BaratDaya KAB-SUKABUMI-JABAR|
+2026-10-09T05:11:04+00:00|0.77|126.03|5.1|10|125 km Tenggara BITUNG-SULUT|
+2026-10-08T08:07:56+00:00|5.66|125.19|5.8|10|230 km BaratLaut TAHUNA-KEP.SANGIHE-SULUT|
+2026-10-06T20:15:26+00:00|-8.77|116.14|5.2|92|9 km Tenggara LOMBOKBARAT-NTB|
+2026-10-06T13:11:23+00:00|4.94|118.77|5.3|10|219 km TimurLaut TARAKAN-KALTARA|
+2026-10-03T23:37:31+00:00|4.56|94.97|5.9|26|68 km BaratDaya CALANG-ACEHJAYA|
+2026-10-03T22:55:52+00:00|-9.70|118.92|6.1|10|14 km BaratDaya KODI-SUMBABARATDAYA-NTT|
+2026-10-01T14:20:00+00:00|-7.07|120.80|5.1|10|111 km Tenggara SELAYAR-SULSEL|
+2026-09-21T23:48:13+00:00|4.74|125.30|5.2|10|127 km BaratLaut TAHUNA-KEP.SANGIHE-SULUT|
+2026-09-21T07:31:07+00:00|-0.70|122.45|5.3|10|26 km BaratDaya PULAUPUAH-SULTENG|
+2026-09-21T01:41:37+00:00|-8.33|120.59|5.3|10|34 km TimurLaut RUTENG-MANGGARAI-NTT|
+2026-09-19T04:18:36+00:00|-1.60|138.88|5.1|10|33 km TimurLaut SARMI-PAPUA|
+2026-09-18T14:36:17+00:00|-8.64|105.74|5.2|10|198 km BaratDaya BAYAH-BANTEN|
+2026-09-17T06:20:53+00:00|1.35|126.44|5.1|24|118 km BaratLaut JAILOLO-MALUT|
+2026-10-17T08:20:52+00:00|-0.75|131.38|4.2|3|Laut 11 km TimurLaut Kota Sorong|III Sorong
+2026-10-16T14:22:04+00:00|-6.76|106.63|2.3|18|Darat 26 km Barat Daya Kota Bogor|II Leuwiliang
+2026-10-16T03:21:55+00:00|-6.69|106.63|2.5|9|Darat 21 km Barat Daya Kota Bogor|II Kabandungan
+2026-10-15T15:32:38+00:00|-7.22|107.71|2.7|4|Darat 21 km barat Kab. Garut|III Darajat, III Pasirwangi
+2026-10-15T10:58:23+00:00|-6.73|106.61|4.1|5|Darat 26 km barat daya kota Bogor|IV Pamijahan, IV Kabandungan
+2026-10-15T10:49:43+00:00|-6.77|106.60|3.5|10|Darat 25 km utara Kab. Sukabumi|III Kalapanunggal, III Leuwiliang, III Cipeuteuy
+2026-10-14T10:30:57+00:00|-8.14|120.56|3.8|10|Laut 53 km utara Ruteng, Manggarai|II - III Kab. Manggarai
+2026-10-13T10:22:02+00:00|-9.06|111.37|4.5|10|Laut 103 km selatan Pacitan|III Trenggalek
+2026-10-13T09:48:27+00:00|-9.83|118.98|4.3|9|Laut 27 km selatan Kodi, Sumba Barat Daya|III Kab. Sumba Barat Daya
+2026-10-13T06:42:28+00:00|-9.75|119.00|4.6|16|Laut 15 km selatan Kodi-Sumba Barat Daya|III Kab. Sumba Barat Daya
+2026-10-13T04:00:21+00:00|-9.45|113.95|4.9|12|Laut 141 km barat daya Jembrana|III Jember, II - III Kuta Selatan, II - III Denpasar, II - III Karangasem, II Lumajang, II Malang, II Blitar, II Bondowoso
+2026-10-12T16:56:33+00:00|-9.75|118.93|4.3|19|Laut 19 km Selatan Kodi, Sumba Barat Daya|III-IV Kab. Sumba Barat Daya
+2026-10-12T14:27:04+00:00|-8.24|120.54|3.3|7|Laut 43 km Utara Ruteng, Manggarai|II-III Kab. Manggarai
+2026-10-12T11:58:07+00:00|-9.20|113.02|4.6|21|Laut 121 km BaratDaya Lumajang, Jawa Timur|III Lumajang, III Malang, III Jember, II Blitar
+2026-10-12T05:28:13+00:00|-8.53|112.27|4.1|101|Laut 44 km selatan Kab. Blitar|III Malang, III Blitar, II Trenggalek, II Lumajang`;
+const REAL=merge(U.split('\n').map(s=>{const k=s.split(',');return{id:'us-'+k[4],lat:+k[0],lon:+k[1],mag:+k[2],depth:+k[3],time:k[4]*1e3,place:k.slice(5).join(','),tsu:+(+k[2]===6.8),src:'USGS'}}),B.split('\n').map(s=>{const k=s.split('|');return{id:'bmkg-'+k[0],lat:+k[1],lon:+k[2],mag:+k[3],depth:+k[4],time:Date.parse(k[0]),place:k[5],tsu:0,src:'BMKG',felt:k[6]||''}}));
+const gc={},geo=s=>gc[s.toFixed(4)]||(gc[s.toFixed(4)]=new THREE.SphereGeometry(s,10,10));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeD()});
+let rwTok=0;
+async function realWave(q){const tok=++rwTok,st=$('#wst'),f=t=>new Date(t).toISOString().slice(0,19),msg=t=>{if(tok!==rwTok)return;if(st)st.textContent=t;const g=$('#ares');if(g)g.innerHTML='';const c=$('#an');if(c)c.getContext('2d').clearRect(0,0,c.width,c.height)};
+try{const r=await fetch('https://service.iris.edu/fdsnws/station/1/query?format=text&level=channel&channel=BHZ&net=IU,II,GE,IC,G&nodata=404&startbefore='+f(q.time)+'&endafter='+f(q.time)+'&latitude='+q.lat+'&longitude='+q.lon+'&maxradius=25',{signal:AbortSignal.timeout(15000)});
+if(r.status===404){msg('Tidak ada stasiun seismik terbuka (IRIS) dalam radius 25° dari gempa ini');return}if(!r.ok)throw 0;
+const rows=(await r.text()).split('\n').filter(l=>l&&l[0]!=='#').map(l=>{const k=l.split('|');return{n:k[0],s:k[1],l:k[2]||'--',lat:+k[4],lon:+k[5],d:0}}).filter(z=>isFinite(z.lat));
+rows.forEach(z=>z.d=dist(q,z));rows.sort((a,b)=>a.d-b.d);
+for(const z of rows.slice(0,5)){if(tok!==rwTok)return;const W=Math.max(240,Math.min(900,z.d/3+150));
+const t=await fetch('https://service.iris.edu/irisws/timeseries/1/query?net='+z.n+'&sta='+z.s+'&loc='+z.l+'&cha=BHZ&start='+f(q.time)+'&end='+f(q.time+W*1e3)+'&output=ascii&demean=true',{signal:AbortSignal.timeout(20000)});
+if(!t.ok)continue;const ln=(await t.text()).trim().split('\n'),sr=+((/([\d.]+) sps/.exec(ln[0])||[0,20])[1]),v=ln.slice(1).join(' ').split(/\s+/).map(Number).filter(isFinite);if(v.length<400)continue;
+const N=2000,bn=v.length/N,a=Array.from({length:N},(_,i)=>{let b=0;for(let j=Math.floor(i*bn);j<Math.floor((i+1)*bn)&&j<v.length;j++)if(Math.abs(v[j])>Math.abs(b))b=v[j];return b}),pc=Math.max(...a.map(Math.abs))||1;
+if(tok!==rwTok)return;st.textContent='Rekaman seismograf nyata · stasiun '+z.n+'.'+z.s+' · '+Math.round(z.d)+' km dari episentrum';
+runAn(a.map(x=>x/pc),v.length/sr,'IRIS '+z.n+'.'+z.s+' (BHZ)',v,sr,pc);return}
+msg('Stasiun terdekat tidak menyediakan rekaman untuk waktu gempa ini')}catch(e){msg('Gagal mengambil rekaman seismograf (koneksi atau izin akses). Coba lagi dari hosting Anda.')}}
+/* ---------- feed ---------- */
+function renderList(){const L=Q.filter(vis).sort((a,b)=>b.time-a.time);
+const sc0=$('#list').scrollTop;setTimeout(()=>$('#list').scrollTop=sc0);$('#list').innerHTML=L.slice(0,400).map(q=>`<div class="row ${sel&&sel.id===q.id?'on':''}" data-id="${q.id}"><div class="mag" style="color:${q.mag>=6?'var(--red)':q.mag>=4.5?'var(--cor)':'var(--cy)'}">${q.mag.toFixed(1)}</div><div><p>${tr(q.place)}</p><small>${q.depth.toFixed(0)} km · ${ago(q.time)} · ${q.src||'USGS'}</small></div></div>`).join('')||'<div class="pad" style="color:var(--mu)">'+(live?'Tidak ada kejadian pada filter ini.':'Menunggu data nyata dari USGS/BMKG…')+'</div>';
+$('#s1').textContent=L.length;const Z=Q.filter(inR);$('#s2').textContent=Z.filter(q=>q.mag>=5).length;$('#s3').textContent=Z.length?Math.max(...Z.map(q=>q.mag)).toFixed(1):'–'}
+$('#list').addEventListener('click',e=>{const r=e.target.closest('.row');if(r)select(Q.find(q=>q.id==r.dataset.id))});
+document.querySelectorAll('.tabs:not(.reg):not(.rng) button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs:not(.reg):not(.rng) button').forEach(x=>x.classList.remove('on'));b.classList.add('on');filt=+b.dataset.f;build();renderList()});
+/* ---------- data ---------- */
+async function load(){try{const r=await fetch(usgsURL(),{signal:AbortSignal.timeout(12000)});if(!r.ok)throw 0;const j=await r.json();
+const old=new Set(Q.map(z=>z.id)),nq=j.features.map((f,i)=>({id:f.id||i,lon:f.geometry.coordinates[0],lat:f.geometry.coordinates[1],depth:Math.max(0,f.geometry.coordinates[2]),mag:f.properties.mag||0,place:f.properties.place||'Unknown',time:f.properties.time,tsu:f.properties.tsunami,mmi:f.properties.mmi,pager:f.properties.alert,nfelt:f.properties.felt}));const bm=rng==='custom'?[]:await bmkg();Q=merge(nq,bm);const was=live;live=true;const nw=Q.filter(z=>!old.has(z.id)&&Date.now()-z.time<36e5).sort((a,b)=>b.mag-a.mag);if(was&&old.size&&nw.length)toast(nw.length+' gempa baru · M'+nw[0].mag.toFixed(1)+' '+tr(nw[0].place));$('#src').textContent='· '+(Q.some(z=>z.src==='BMKG')?'BMKG + USGS':'USGS')+(rng==='custom'?' · '+d1+' s/d '+d2+' · '+Q.length+' kejadian':' · diperbarui '+new Date().toLocaleTimeString('id-ID'))}
+catch(e){try{const bm=rng==='custom'?[]:await bmkg();if(bm.length){Q=bm;live=true;build();renderList();$('#src').textContent='· BMKG saja (USGS tidak terjangkau) · diperbarui '+new Date().toLocaleTimeString('id-ID');return}}catch(_){}$('#src').textContent=live?'· koneksi terputus, mencoba lagi…':'· GAGAL memuat data langsung dari USGS/BMKG — tidak ada data tiruan yang ditampilkan'}build();renderList()}
+/* ---------- loop ---------- */
+function size(){ren.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}addEventListener('resize',size);size();
+cam.setViewOffset&&0;
+function loop(now){requestAnimationFrame(loop);if(auto)ty+=.0012;
+G.rotation.x+=(tx-G.rotation.x)*(fly?.06:.25);G.rotation.y+=(ty-G.rotation.y)*(fly?.06:.25);zoom+=(tz-zoom)*.06;cam.position.z=zoom;
+rings.forEach(r=>{const u=r.userData;u.ph=(u.ph+.006)%1;const k=u.s*(1.5+u.ph*(5+u.q.mag*1.6));r.scale.setScalar(k);r.material.opacity=(1-u.ph)*.4});
+wave(now);ren.render(sc,cam)}
+let live=false;const toastEl=document.createElement('div');toastEl.className='toast';document.body.appendChild(toastEl);
+function toast(t){toastEl.textContent=t;toastEl.classList.add('on');setTimeout(()=>toastEl.classList.remove('on'),7000)}
+setInterval(()=>{if(!document.hidden&&rng!=='custom')load()},60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&rng!=='custom')load()});
+load();requestAnimationFrame(loop);
+</script></body></html>
